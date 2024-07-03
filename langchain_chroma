@@ -1,0 +1,89 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Wed Jul  3 08:49:31 2024
+
+@author: csc05176
+"""
+# 使用langchain的框架来运行chroma数据库
+from langchain.vectorstores import chroma
+from langchain_community.embeddings import OllamaEmbeddings
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain.document_loaders import PyPDFLoader
+# 读入pdf数据
+path=r'C:\Users\csc05176\Desktop\py\deeplearning\data\margin_base.pdf'
+loader = PyPDFLoader(path)
+file_content = loader.load()
+# file_content为document类型的
+# 截取其中的一部分做实验
+content = file_content[20].page_content
+# 对字符串进行截取
+# 长度太短，划分出来的句子内容太少了，导致搜索没意义
+text_splitter = RecursiveCharacterTextSplitter(chunk_size=50,chunk_overlap=5,length_function=len,add_start_index=True)
+data = text_splitter.split_text(text=content)
+# 向量数据库运行时间过长，要寻找原因,4090D还是能运行完的，得十来分钟吧
+# 确定向量化模型
+embeddings = OllamaEmbeddings(model="qwen")
+# 向量数据库保存位置
+persist_directory = 'D:\\script\\python\\data\\' 
+# 创建向量数据库，这里使用的是documents但是这里的data数据是str的，所以不能用documents都要改为texts
+vectordb =  chroma.Chroma.from_texts(
+    texts=data,
+    embedding=embeddings,
+    persist_directory=persist_directory
+) 
+# 词向量数据应用
+# 查看向量数据库中的文档数量
+print(vectordb._collection.count())
+# 查找在数据库中寻找相似的向量，返回的doc是document类型
+question = "客户开展融资融券业务应该具备哪些条件" 
+docs = vectordb.similarity_search(question,k=3)
+# docs为document类型，通过页码和page_content来引用 
+print(docs[0])
+# 打印文档数量
+print(len(docs))
+# 只有这样才能真正的保存在本地，方便下次使用
+# 新版本会自动持久化，所以可以不使用下面的代码了
+# vectordb.persist()
+# 感觉如果不是作为chain的一个环节，仅仅是直接检索更高效，除非是一系列的子任务，这时相关检索不方便更准确的人工来参与
+# 调用持久化向量数据库
+# import chroma
+# 输入路径,并且确定嵌入函数
+persist_directory = 'D:\\script\\python\\data\\'
+vectordb_call = chroma.Chroma(persist_directory=persist_directory,embedding_function=embeddings)
+# 使用数据库检索,人生就是一个chain，检索，提问，回答，再检索，
+docs_call = vectordb_call.similarity_search(question,k=3)
+print(docs_call[0])
+# metadata为空
+print(docs_call[0].metadata)
+# 增加新的向量到已存在的数据库
+new_texts = '融资融券业务是国务院需要限制发展的业务，同样有限制的是衍生品业务'
+vectordb_call.add_texts(texts=new_texts, embedding=embeddings)
+print(vectordb_call._collection.count())
+# 获取某条记录
+# ids是需要添加的，在数据库建立的时候就可以添加
+# ids是字符串的，因为没有建立索引，所以返回为空置
+i = str(5)
+doc_id = vectordb._collection.get(i)
+# 两种表达方式，前提是i时字符串
+doc_id = vectordb._collection.get(ids=[i])
+j = 'gsxl'
+doc_id = vectordb._collection.get(j)
+# 建立数据库时即建立索引
+# 利用documents来建立数据库
+text_splitter = RecursiveCharacterTextSplitter(chunk_size=50,chunk_overlap=5,length_function=len,add_start_index=True)
+data = text_splitter.split_documents(documents=file_content)
+# create simple ids
+ids = [str(i) for i in range(1, len(data) + 1)]
+# add data
+# 要运行很久的
+example_db = chroma.Chroma.from_documents(data, embeddings, ids=ids)
+# 没有定义qury
+# docs = example_db.similarity_search(query)
+print(docs[0].metadata)
+# 删除
+# 假设我们知道要删除的文档ID,可能报错，因为都是数字
+# ids_to_delete = [1, 2]  # 替换为实际要删除的ID
+# 需要有索引的
+# 删除指定ID的文档
+# vectordb.delete(ids=ids_to_delete)
+
