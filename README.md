@@ -3,8 +3,11 @@
 ## 借鉴的资料
 
 知乎上的讲解
-https://github.com/Microstrong0305/WeChat-zhihu-csdnblog-code/tree/master \n
+
+https://github.com/Microstrong0305/WeChat-zhihu-csdnblog-code/tree/master 
+
 bi站博主的源代码
+
 示例代码
 https://github.com/sugarforever/WTFAcademyChatBot/blob/main/WTFAcademyChatBotChroma.ipynb
 
