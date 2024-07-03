@@ -1,0 +1,308 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Fri Jun 28 08:44:55 2024
+
+@author: csc05176
+"""
+
+#实现本地向量数据库的搜索，即RAG
+
+#导入pdf
+from langchain.document_loaders import PyPDFLoader
+loader = PyPDFLoader(r"C:\Users\csc05176\Desktop\py\deeplearning\data\margin_base.pdf")
+file_content = loader.load()
+print(file_content)
+print(file_content[0])
+a = file_content[0].page_content
+content=''
+for i in range(81):
+    content = content+file_content[i].page_content
+content=content.replace("内部资料，请勿外传","")
+#创建本地数据库,涉及内容太多，建立向量数据库时间过长
+from langchain.vectorstores import chroma
+from langchain_community.embeddings import OllamaEmbeddings
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+
+text_splitter = RecursiveCharacterTextSplitter(chunk_size=500,chunk_overlap=100,length_function=len,add_start_index=True)
+data = text_splitter.split_text(text=content)
+embeddings = OllamaEmbeddings(model="qwen")
+vector_database = chroma.Chroma.from_texts(data,embeddings)
+
+from langchain.chains import create_retrieval_chain
+retriever = vector_database.as_retriever()
+
+#只使用一页的内容为了走通
+page = file_content[0].page_content
+text_splitter = RecursiveCharacterTextSplitter(chunk_size=500,chunk_overlap=100,length_function=len,add_start_index=True)
+data = text_splitter.split_text(text=page)
+embeddings = OllamaEmbeddings(model="qwen")
+vector_database = chroma.Chroma.from_texts(data,embeddings)
+
+from langchain.chains import create_retrieval_chain
+retriever = vector_database.as_retriever()
+from langchain_core.runnables import RunnablePassthrough
+from langchain_core.prompts import ChatPromptTemplate
+template="""
+{context}
+{question}
+"""
+prompt = ChatPromptTemplate.from_template(template=template)
+from langchain_community.llms import Ollama
+llm = Ollama(model="qwen")
+chain = {"context":retriever,"question":RunnablePassthrough()}|prompt |llm 
+res = chain.invoke('今天天气怎么样')
+
+#pdf去水印
+from langchain.document_loaders import PyPDFLoader
+loader = PyPDFLoader(r"C:\Users\csc05176\Desktop\py\deeplearning\data\zyzd.pdf")
+file_content = loader.load()
+print(file_content)
+print(file_content[0])
+temp=file_content[0].page_content
+#报错
+temp.replace(["CSC26272","宋彦泽"],"")
+#另一种尝试
+temp = temp.replace("CSC26272","")
+temp = temp.replace("宋彦泽","")
+
+#将这页转化成为pdf
+#报错都是黑体字
+#
+from reportlab.lib.pagesizes import letter
+from reportlab.pdfgen import canvas
+def string_to_pdf(text, output_pdf_path):
+    # 创建Canvas对象，指定页面大小和输出文件
+    c = canvas.Canvas(output_pdf_path, pagesize=letter)
+    width, height = letter
+
+    # 设置字体和字号
+    c.setFont("Times-Roman", 12)
+
+    # 分割字符串为多行
+    lines = text.split('\n')
+    y = height - 40  # 起始位置
+
+    for line in lines:
+        c.drawString(40, y, line)
+        y -= 14  # 调整行间距
+
+    # 保存PDF文件
+    c.save()
+
+# 输出PDF文件路径
+output_pdf_path = r"C:\Users\csc05176\Desktop\py\deeplearning\data\output.pdf"
+
+# 将字符串转换为PDF
+string_to_pdf(temp, output_pdf_path)
+
+#尝试使用源代码，源代码是成立的，可能是因为中文字体的原因
+from reportlab.lib.pagesizes import letter
+from reportlab.pdfgen import canvas
+
+def string_to_pdf(text, output_pdf_path):
+    # 创建Canvas对象，指定页面大小和输出文件
+    c = canvas.Canvas(output_pdf_path, pagesize=letter)
+    width, height = letter
+
+    # 设置字体和字号
+    c.setFont("Helvetica", 12)
+
+    # 分割字符串为多行
+    lines = text.split('\n')
+    y = height - 40  # 起始位置
+
+    for line in lines:
+        c.drawString(40, y, line)
+        y -= 14  # 调整行间距
+
+    # 保存PDF文件
+    c.save()
+
+# 示例字符串
+sample_text = """This is a sample text.
+This text will be converted to a PDF file.
+It contains multiple lines."""
+
+# 输出PDF文件路径
+output_pdf_path = r"C:\Users\csc05176\Desktop\py\deeplearning\data\output.pdf"
+
+# 将字符串转换为PDF
+string_to_pdf(sample_text, output_pdf_path)
+
+#使用中文字体库
+from reportlab.lib.pagesizes import letter
+from reportlab.pdfgen import canvas
+from reportlab.pdfbase.ttfonts import TTFont
+from reportlab.pdfbase import pdfmetrics
+from reportlab.rl_config import TTFSearchPath
+
+# 指定 TrueType 字体的路径（请根据实际路径调整）文字的ttf一直没有下载下来
+TTFSearchPath.append(r"C:\Users\csc05176\Desktop\py\deeplearning\data\\")  # 将此路径替换为实际的路径
+pdfmetrics.registerFont(TTFont('SimSun', 'SimSun.ttf'))  # 使用 SimSun 中文字体
+
+def string_to_pdf(text, output_pdf_path):
+    # 创建 Canvas 对象，指定页面大小和输出文件
+    c = canvas.Canvas(output_pdf_path, pagesize=letter)
+    width, height = letter
+
+    # 设置字体和字号为 TrueType 字体
+    c.setFont("SimSun", 12)
+
+    # 如果有多行文本，分割字符串为多行处理
+    lines = text.split('\n')
+    y = height - 40  # 起始位置
+
+    for line in lines:
+        c.drawString(40, y, line)
+        y -= 14  # 调整行间距
+
+    # 保存 PDF 文件
+    c.save()
+
+# 示例字符串，包括中文字符
+sample_text = """这是一个示例文本。
+这个文本将被转换为 PDF 文件。
+它包含多行文本，包括一些中文字符：你好，世界！"""
+
+# 输出 PDF 文件路径
+output_pdf_path = r"C:\Users\csc05176\Desktop\py\deeplearning\data\output.pdf"
+
+# 将字符串转换为 PDF
+string_to_pdf(sample_text, output_pdf_path)
+
+#将应知应会清理为一问一答的数据
+from langchain.document_loaders import PyPDFLoader
+loader = PyPDFLoader(r"C:\Users\csc05176\Desktop\py\deeplearning\data\margin_base.pdf")
+file_content = loader.load()
+print(file_content)
+print(file_content[0])
+a = file_content[0].page_content
+content=''
+for i in range(81):
+    content = content+file_content[i].page_content
+content=content.replace("内部资料，请勿外传","")
+#正则表达式截取、与？之间的部分
+import re
+def extract_all_substrings(s):
+    # 使用正则表达式查找所有 `？` 和 `、` 之间的部分
+    matches = re.findall(r'、(.*?)？', s)
+    return matches
+# 示例字符串
+text = "这是一个示例字符串？提取部分1、结束。再来一个示例？提取部分2、结束。还有一个？提取部分3、"
+# 截取字符串中所有 `？` 和 `、` 之间的部分
+results = extract_all_substrings(text)
+print(results)  
+
+#找出所有问题
+from langchain.document_loaders import PyPDFLoader
+loader = PyPDFLoader(r"C:\Users\csc05176\Desktop\py\deeplearning\data\margin_base.pdf")
+file_content = loader.load()
+print(file_content)
+print(file_content[0])
+a = file_content[0].page_content
+content=''
+for i in range(81):
+    content = content+file_content[i].page_content
+content=content.replace("内部资料，请勿外传","")
+#正则表达式截取、与？之间的部分
+import re
+#正则表达式没有考虑换行符但是实际情况是有的
+print("nihao \n")
+def extract_all_substrings(s):
+    # 使用正则表达式查找所有 `？` 和 `、` 之间的部分
+    matches = re.findall(r'、(.*?)？', s)
+    return matches
+
+#应知应会中汇总的字符串
+results = extract_all_substrings(content)
+print(results)  
+print(len(results))
+#去重
+import pandas as pd
+# 使用 pandas 去重并保持顺序
+unique_list = pd.Series(results).drop_duplicates().tolist()
+print(unique_list)
+print(len(unique_list))
+location=content.find(unique_list[1])
+print(unique_list[1])
+print(content[256:276])
+res = pd.DataFrame()
+i = 0
+pvalue = 0
+start = 0
+for str in unique_list:
+    start = pvalue
+    while True:
+        start = content.find(str,start)
+        if start == -1 :
+            break
+        pvalue = start
+    length = len(str)
+    res.loc[i,'起始位置'] = pvalue
+    res.loc[i,'长度'] = length
+    i = i+1
+#运行时间太长
+#单一测试,傻了不能再从start开始否则陷入无限循环，应该是start+len
+start = 0
+strr = unique_list[0]
+while True:
+    start = content[0:1000].find(strr,start)
+    if start == -1 :
+        break
+    pvalue = start
+    length = len(str)
+    res.loc[i,'起始位置'] = pvalue
+    res.loc[i,'长度'] = length
+    i = i+1
+#重新计算
+res = pd.DataFrame()
+i = 0
+pvalue = 0
+start = 0
+for str in unique_list:
+    start = 0
+    #start = pvalue 有错误主要是因为问题不是按照顺序排列的，有些位置靠后的问题，有可能在正文中位置靠前
+    while True:
+        start = content.find(str,start)
+        if start == -1 :
+            break
+        pvalue = start
+        start = start + len(str)
+    length = len(str)
+    res.loc[i,'问题'] = str
+    res.loc[i,'起始位置'] = pvalue
+    res.loc[i,'长度'] = length
+    i = i+1
+#也有问题必须要重新排序，否则取不到答案,要赋值的，因为几乎是拍好了顺序，所以误认为，不需要赋值，但是这是错误的
+#res.sort_values(by='起始位置',ascending=True).reset_index()
+res = res.sort_values(by='起始位置',ascending=True).reset_index()
+print(content[0:15000])
+leng = len(res.index)
+leng = leng - 1 
+for i in range(leng):
+    res.loc[i,'答案'] = content[int((res.loc[i,'起始位置'] + res.loc[i,'长度'] + 3)):int((res.loc[i+1,'起始位置']-2))]
+#查找问题为什么无法排序？真正的原因是字符串没有找到，所以找到的是第一个字符串，出现回头检索的问题，但关键是没有排序啊····
+texttt = '融资买入的当天就可以通过卖券还款或者直接还款来归还此项负债吗' 
+#中间有一个换行符号，导致字符串不匹配
+#te =     '融资买入的当天就可以通过卖券还款或者直接还款来
+#归还此项负债吗'
+rqmc = '融券卖出有什么要求'
+po = content.find(rqmc,0)
+print(len(texttt)) 
+print(content[30593:31026])
+textt = '融资买入的当天就'
+pot = content.find(te,4000)
+print(res.dtypes)
+print(res.loc[22,'起始位置'])
+print(res.loc[21,'起始位置'])
+if res.loc[22,'起始位置']>res.loc[21,'起始位置']:
+    print(0)
+#po为17900,但是59记录为3657  
+#出了问题，主要是因为，初始的变量已经发生了改变，变量改变，尽管代码不变，结果也会发生变化，切记    
+    i = 1
+    begin = int(res.loc[i,'起始位置'] + res.loc[i,'长度'] + 3)
+    ress = content[int((res.loc[i,'起始位置'] + res.loc[i,'长度'] + 3)):int((res.loc[i+1,'起始位置']-2))]
+    
+    
+    
+
