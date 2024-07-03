@@ -18,6 +18,8 @@ https://github.com/WTFAcademy/WTF-Solidity
 Chroma
 https://www.trychroma.com/
 
+官网提供的demo：https://github.com/hwchase17/chroma-langchain?tab=readme-ov-file
+
 LangChain官方文档
 https://python.langchain.com/en/latest/index.html
 
