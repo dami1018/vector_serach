@@ -86,4 +86,8 @@ print(docs[0].metadata)
 # 需要有索引的
 # 删除指定ID的文档
 # vectordb.delete(ids=ids_to_delete)
-
+# 查找数据可以做字段检索，但是找到的数据，除了相似度检索以外，都是embedding的编码数据
+# 数据有很多属性，ids，metadata，embedding，newvalue
+# 引用方式[].page_content这类的
+# 检索示例，来在官网
+# example_db.get(where={"source": "some_other_source"})
