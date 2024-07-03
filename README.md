@@ -20,3 +20,5 @@ https://www.trychroma.com/
 
 LangChain官方文档
 https://python.langchain.com/en/latest/index.html
+
+讲的很全：https://python.langchain.com/v0.2/docs/integrations/vectorstores/chroma/ 各种属性和方法
