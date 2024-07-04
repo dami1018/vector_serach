@@ -1,1 +1,88 @@
+# 建立应知应会的本地向量数据库
+# 基本思路，索引向量检索加回答精确匹配的方式
+# 通过向量数据库，查询相关性高的索引，然后通过找到对应的问题答案
 
+#将应知应会清理为一问一答的数据
+from langchain.document_loaders import PyPDFLoader
+loader = PyPDFLoader(r"C:\Users\csc05176\Desktop\py\deeplearning\data\margin_base.pdf")
+file_content = loader.load()
+# print(file_content)
+print(file_content[0])
+# a = file_content[0].page_content
+content=''
+for i in range(81):
+    content = content+file_content[i].page_content
+content = content.replace("内部资料，请勿外传","")
+# 除去换行符，出现了很长的问题
+# content = content.replace("\n","")
+#正则表达式截取、与？之间的部分
+import re
+def extract_all_substrings(s):
+    # 使用正则表达式查找所有 `？` 和 `、` 之间的部分
+    matches = re.findall(r'、(.*?)？', s)
+    return matches
+
+#应知应会中汇总的字符串
+results = extract_all_substrings(content)
+#去重
+import pandas as pd
+# 使用 pandas 去重并保持顺序
+unique_list = pd.Series(results).drop_duplicates().tolist()
+
+# 生成位置矩阵
+# 这里除去换行符，后面除去换行符开来是成功的，问题出在正则表达上了，有空研究一下
+content = content.replace("\n","")
+res = pd.DataFrame()
+i = 0
+pvalue = 0
+start = 0
+for str in unique_list:
+    start = 0
+    #start = pvalue 有错误主要是因为问题不是按照顺序排列的，有些位置靠后的问题，有可能在正文中位置靠前
+    while True:
+        start = content.find(str,start)
+        if start == -1 :
+            break
+        pvalue = start
+        start = start + len(str)
+    length = len(str)
+    res.loc[i,'问题'] = str
+    res.loc[i,'起始位置'] = pvalue
+    res.loc[i,'长度'] = length
+    i = i+1
+
+# 维护答案
+leng = len(res.index)
+leng = leng - 1 
+# 确定好位置，开始？所以加1，结束有数字和、所以减2
+# 某些子问题也是符合、？的结构，可以去掉的，最后一个问题与pdf是相符合的
+for i in range(leng):
+    res.loc[i,'答案'] = content[int((res.loc[i,'起始位置'] + res.loc[i,'长度'] + 1)):int((res.loc[i+1,'起始位置']-2))]
+# print(content[20882:21100])
+# print(res.loc[206,'答案'])
+# 数据清理，将所有问题填充到最长长度，并连接成一个大的字符串，字符串之间没有区分
+question = res['问题'].tolist()
+longest_str = max(question, key=len)
+longest = len(longest_str)
+padded_list = [s.ljust(longest) for s in question]
+long_string = "".join(padded_list)
+# 建立本地向量数据库
+from langchain.vectorstores import chroma
+from langchain_community.embeddings import OllamaEmbeddings
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+
+text_splitter = RecursiveCharacterTextSplitter(chunk_size=32,chunk_overlap=0,length_function=len,add_start_index=True)
+data = text_splitter.split_text(text=long_string)
+
+embeddings = OllamaEmbeddings(model="qwen")
+# 向量数据库保存位置
+persist_directory = 'D:\\script\\python\\data\\q&a' 
+# 创建向量数据库，这里使用的是documents但是这里的data数据是str的，所以不能用documents都要改为texts
+vectordb =  chroma.Chroma.from_texts(
+    texts=data,
+    embedding=embeddings,
+    persist_directory=persist_directory
+) 
+# 查询数据
+qury = '费率如何调整'
+docs = vectordb.similarity_search(qury,k=3)
