@@ -1,0 +1,23 @@
+import os
+# 指定包含 PDF 文件的主目录路径
+directory_path = r'C:\Users\csc05176\Desktop\py\deeplearning\data\\'
+# 列出目录及其子目录下所有以 .pdf 结尾的文件
+pdf_files = []
+for root, dirs, files in os.walk(directory_path):
+    for file in files:
+        if file.endswith('.pdf'):
+            pdf_files.append(os.path.join(root, file))
+
+# 打印找到的 PDF 文件
+print(f"在目录 '{directory_path}' 及其子目录中找到的 PDF 文件数量: {len(pdf_files)}\n")
+# 列表的遍历
+from langchain.document_loaders import PyPDFLoader
+# 实验,成功，系统自动获取导出的文件路径不需要再加修饰了，比如前面加r
+loader = PyPDFLoader(pdf_files[2])
+file_content = loader.load()
+# 这里的file_content就是一个list,每个元素是document类型的，有两个属性，一个是字符串，一个是字典
+file_content[0]
+len(file_content)
+for pdf_file in pdf_files:
+    loader = PyPDFLoader(pdf_file)
+    file_content = loader.load()
