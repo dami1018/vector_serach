@@ -1,0 +1,148 @@
+import os
+# 指定包含 PDF 文件的主目录路径
+directory_path = r'D:\script\python\data\\'
+# 列出目录及其子目录下所有以 .pdf 结尾的文件
+pdf_files = []
+for root, dirs, files in os.walk(directory_path):
+    for file in files:
+        if file.endswith('.pdf'):
+            pdf_files.append(os.path.join(root, file))
+
+# 打印找到的 PDF 文件
+print(f"在目录 '{directory_path}' 及其子目录中找到的 PDF 文件数量: {len(pdf_files)}\n")
+# 列表的遍历
+from langchain.document_loaders import PyPDFLoader
+# 实验,成功，系统自动获取导出的文件路径不需要再加修饰了，比如前面加r
+loader = PyPDFLoader(pdf_files[2])
+file_content = loader.load()
+data = file_content[2]
+print(file_content[2])
+page_content = data.page_content
+print(page_content)
+page_content = page_content.replace('宋彦泽','')
+page_content = page_content.replace('CSC26272','')
+file_content[2].page_content = page_content
+for content in file_content:
+    page_content = content.page_content
+# 这里的file_content就是一个list,每个元素是document类型的，有两个属性，一个是字符串，一个是字典
+file_content[0]
+len(file_content)
+pdf = []
+for pdf_file in pdf_files:
+    loader = PyPDFLoader(pdf_file)
+    file_content = loader.load()
+    for content in file_content:
+        content.page_content = content.page_content.replace('宋彦泽','')
+        content.page_content = content.page_content.replace('CSC26272','')
+        pdf.append(content)
+print(len(pdf))
+print(pdf[305])
+# 建立向量数据库
+
+from langchain.vectorstores import chroma
+from langchain_community.embeddings import OllamaEmbeddings
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+
+text_splitter = RecursiveCharacterTextSplitter(chunk_size=50,chunk_overlap=5,length_function=len,add_start_index=True)
+# data = text_splitter.split_documets(document=content)
+data = text_splitter.split_documents(documents=pdf) 
+
+embeddings = OllamaEmbeddings(model="llama3:8b")
+persist_path = r'D:\script\python\data\chroma_db\rules\\'
+# 运行时间过长可以考虑分块再大一些，同时换一个分词器
+rules_db = chroma.Chroma.from_documents(data, embeddings,persist_directory=persist_path)       
+
+from langchain.embeddings import SentenceTransformerEmbeddings
+embeddings = SentenceTransformerEmbeddings(model_name="all-MiniLM-L6-v2")
+text_splitter = RecursiveCharacterTextSplitter(chunk_size=500,chunk_overlap=100,length_function=len,add_start_index=True)
+data = text_splitter.split_documents(documents=pdf)
+# data[500]
+rules_db = chroma.Chroma.from_documents(data, embeddings,persist_directory=persist_path)   
+import torch
+print(torch.__version__)
+print(torch.__version__)
+
+#查找和搜寻
+# 查找在数据库中寻找相似的向量，返回的doc是document类型
+question = "客户开展融资融券业务应该具备哪些条件" 
+docs = rules_db.similarity_search(question,k=5)
+for doc in docs:
+    print(doc)
+    
+# 对不同的embeddding模型进行比较，data数据不变，关键是生成chroma的时间和搜索的质量
+# bert-base-chinese
+# 效果改善很多
+# hfl/chinese-bert-wwm
+# 结果是一样的
+# hfl/roberta-base-chinese
+# 报错没找到
+# hfl/chinese-roberta-wwm-ext
+# 与bert的结果略有不同
+embedding_text = "hfl/chinese-roberta-wwm-ext"
+chunk_size = 50
+chunk_overlap = 5
+embeddings = SentenceTransformerEmbeddings(model_name=embedding_text)
+text_splitter = RecursiveCharacterTextSplitter(chunk_size=chunk_size,chunk_overlap=chunk_overlap,length_function=len,add_start_index=True)
+data = text_splitter.split_documents(documents=pdf)
+# 使用多个分词器运行多次的结果是有多条记录 
+rules_db = chroma.Chroma.from_documents(data, embeddings)  
+question = "客户开展融资融券业务应该具备哪些条件" 
+docs = rules_db.similarity_search(question,k=5)
+for doc in docs:
+    print(doc)
+# 打印元数据
+# metadata是一个字段
+print(docs[2].metadata['source'])
+temp = docs[2].metadata
+temp['source']
+print(temp)
+
+#查询满足一定条件元数据
+#如果遇到两个条件要用$and字符，不能直接使用字典
+'''
+metadata_query = {
+    "source": docs[2].metadata['source'],
+    "page": 8,
+
+}
+'''
+metadata_query = {
+    "$and": [
+        {"source": docs[2].metadata['source']},
+        {"page": 8},
+        {"start_index": 561}
+    ]
+}
+# 查询块开始点在100到200之间的
+metadata_query = {
+    "$and": [
+        {"source": "D:\\script\\python\\data\\\\data\\margin_base.pdf"},
+        {"page": 8},
+        {"start_index": {"$gte": 100, "$lte": 200}}  # 查询 start_index 在 100 到 200 之间的分块
+    ]
+}
+
+
+# 报错：AttributeError: 'Chroma' object has no attribute 'query'
+# 使用get
+# rules_db.query(where = metadata_query)
+temp_source = rules_db.get(where = metadata_query)
+temp_documents = temp_source['documents'] 
+
+# 研究一下data的结构,开始的数字没有什么规律
+data[10]
+for i in range(50,100):
+    print(data[i].metadata['start_index'])
+# 其中有多少重复的，没有重复的，kimi给的解答可能是真的，实际上就是有三条记录，
+import pandas as pd
+data_pd = pd.DataFrame()
+for i in range(len(data)):
+    data_pd.loc[i,'source'] = data[i].metadata['source']
+    data_pd.loc[i,'page'] = data[i].metadata['page']
+    data_pd.loc[i,'start'] = data[i].metadata['start_index']
+
+# 找出其中重复的数据,结果中没有重复的数字  
+duplicates = data_pd[data_pd.duplicated()]
+
+# 查看数据库基本信息,给出的数据是59805恰好是data数据信息的3倍
+rules_db._collection.count()
