@@ -146,3 +146,32 @@ duplicates = data_pd[data_pd.duplicated()]
 
 # 查看数据库基本信息,给出的数据是59805恰好是data数据信息的3倍
 rules_db._collection.count()
+
+# 调用已经存在的数据库
+from langchain.embeddings import SentenceTransformerEmbeddings
+from langchain.vectorstores import chroma
+persist_directory = r'C:\Users\csc05176\Desktop\py\deeplearning\data\db1'
+embedding_text = "hfl/chinese-roberta-wwm-ext"
+embeddings = SentenceTransformerEmbeddings(model_name=embedding_text)
+vectordb = chroma.Chroma(persist_directory=persist_directory,embedding_function=embeddings)
+# D:\tools\hf\.cache\huggingface\hub\models--hfl--chinese-roberta-wwm-ext 导入存量模型
+embedding_text = r"D:\tools\hf\.cache\huggingface\hub\models--hfl--chinese-roberta-wwm-ext\snapshots\5c58d0b8ec1d9014354d691c538661bf00bfdb44\\"
+embeddings1 = SentenceTransformerEmbeddings(model_name=embedding_text)
+# No sentence-transformers model found with 标配即使你指定确定的有json文件的目录都会有
+# 有指定json文件目录，不上网也可以加载，但是也会报not found
+# 灭有指定目录，会报错连接超时，如果可以上网也不会真实下载，但是不报错可运行
+vectordb1 = chroma.Chroma(persist_directory=persist_directory,embedding_function=embeddings1)
+question = "客户开展融资融券业务应该具备哪些条件" 
+docs = vectordb.similarity_search(question,k=5)
+for doc in docs:
+    print(doc)
+# 感觉没有500个子那么多，只有100个字，查询
+metadata_query = {
+    "$and":
+    [{"source": "C:\\Users\\csc05176\\Desktop\\py\\deeplearning\\data\\\\证券金融部制度汇总\\中信建投证券股份有限公司转融通证券出借业务客户适当性管理细则（试行）.pdf"},
+    {"page": 2}]
+
+}
+temp_source = vectordb.get(where = metadata_query)
+# 
+len(temp_source['documents'][2])
