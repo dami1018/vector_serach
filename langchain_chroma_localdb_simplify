@@ -1,3 +1,5 @@
+# 在给出问题答案方面上有创新，采用了递归的方式，通过不断的结果输入模型得到新的结果，来逐步优化答案
+# 而且采用了两个模型，一是 llama8b 一是glm4 9b
 import os
 # 指定包含 PDF 文件的主目录路径
 directory_path = r'D:\script\python\data\\'
