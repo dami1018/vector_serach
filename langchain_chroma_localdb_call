@@ -1,7 +1,7 @@
 # 调用已经存在的数据库,langchain的app应用都是调用已经存在的数据库，目前的代码还存在一定的重复啰嗦的部分
 from langchain.embeddings import SentenceTransformerEmbeddings
 from langchain.vectorstores import chroma
-persist_directory = r'C:\Users\csc05176\Desktop\py\deeplearning\data\db1'
+persist_directory = r'D:\script\python\data\chroma_db\rules500\\'
 embedding_text = "hfl/chinese-roberta-wwm-ext"
 embeddings = SentenceTransformerEmbeddings(model_name=embedding_text)
 vectordb = chroma.Chroma(persist_directory=persist_directory,embedding_function=embeddings)
