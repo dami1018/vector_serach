@@ -1,0 +1,177 @@
+import os
+# 指定包含 PDF 文件的主目录路径
+directory_path = r'D:\script\python\data\\'
+# 列出目录及其子目录下所有以 .pdf 结尾的文件
+pdf_files = []
+for root, dirs, files in os.walk(directory_path):
+    for file in files:
+        if file.endswith('.pdf'):
+            pdf_files.append(os.path.join(root, file))
+from langchain.document_loaders import PyPDFLoader
+pdf = []
+for pdf_file in pdf_files:
+    loader = PyPDFLoader(pdf_file)
+    file_content = loader.load()
+    for content in file_content:
+        content.page_content = content.page_content.replace('宋彦泽','')
+        content.page_content = content.page_content.replace('CSC26272','')
+        pdf.append(content)
+
+from langchain.vectorstores import chroma
+from langchain_community.embeddings import OllamaEmbeddings
+from langchain.embeddings import SentenceTransformerEmbeddings
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+# 运行报错，因为以下路径之前存储的向量数据库分词长度不是500
+# persist_path = r'D:\script\python\data\chroma_db\rules\\'
+# 不报错，因为重新存储了向量数据库
+persist_path = r'D:\script\python\data\chroma_db\rules500\\'
+embedding_text = "hfl/chinese-roberta-wwm-ext"
+chunk_size = 500
+chunk_overlap = 100
+embeddings = SentenceTransformerEmbeddings(model_name=embedding_text)
+text_splitter = RecursiveCharacterTextSplitter(chunk_size=chunk_size,chunk_overlap=chunk_overlap,length_function=len,add_start_index=True)
+data = text_splitter.split_documents(documents=pdf)
+# 使用多个分词器运行多次的结果是有多条记录 
+# 加了路径执行报错
+# rules_db = chroma.Chroma.from_documents(data, embeddings,persist_directory=persist_path)
+# embedding_function=embeddings,这是调用数据库的写法，直接生成并写入数据库不是这样
+# rules_db = chroma.Chroma.from_documents(data, embedding_function=embeddings,persist_directory=persist_path)
+rules_db1 = chroma.Chroma.from_documents(data, embeddings,persist_directory=persist_path) 
+# rules_db = chroma.Chroma.from_documents(data, embeddings)  
+rules_db = rules_db1 
+question = "客户开展融资融券业务应该具备哪些条件" 
+docs = rules_db.similarity_search(question,k=5)
+for doc in docs:
+    print(doc)
+# 找到涉及内容的上下文
+content =  []
+for doc in docs:
+    page = doc.metadata['page']
+    source = doc.metadata['source']
+    start = doc.metadata['start_index']
+    page_list = []
+    if page==0:
+        page_list = [0,1]
+        # print(1)
+    else:
+        page_list = [page-1,page,page+1]
+    for page in page_list:
+        metadata_query = {
+            "$and":
+            [{"source": doc.metadata['source']},
+            {"page": page}
+            ]
+            }
+        temp_source = rules_db.get(where = metadata_query)
+        long_string = " ".join(temp_source['documents'])
+        content.append(long_string)
+# 不是嵌入式模型，嵌入式模型是用来向量化和chroma数据库的
+# from langchain_community.embeddings import OllamaEmbeddings
+# big_embeddings = OllamaEmbeddings(model="llama3:8b")
+# ollama llama3
+from langchain_community.llms import Ollama
+llm = Ollama(model="llama3:8b")
+llm.invoke(question+'请用中文')
+# 生成提示词
+temp = '基于以下内容：'+content[5]+'请回答问题：'+question
+out = llm.invoke(temp +'请用中文')
+# 生成提示词
+temp1 = '基于以下内容：'+content[5]+content[6]+'请回答问题：'+question
+out1 = llm.invoke(temp1 +'请用中文')
+# 生成三次结果，并将三次结果连接成提示词，再向大模型询问,效果会变好
+prompt = '基于以下内容：'+ out + out1 +'请回答问题：'+question+'请用中文'
+out2 = llm.invoke(prompt)
+
+# hugginghub glm4
+# 需要token，可以回头尝试一下
+# from langchain_community.llms import HuggingFaceHub 
+# llm = HuggingFaceHub( repo_id="Qwen/Qwen2-0.5B-Instruct")
+# 走通qwen
+from langchain_huggingface.llms import HuggingFacePipeline
+# from langchain_core.prompts import PromptTemplate
+hf_qwen = HuggingFacePipeline.from_model_id(
+    model_id="Qwen/Qwen2-0.5B-Instruct",
+    task="text-generation",
+    device=0,
+    pipeline_kwargs={"max_new_tokens": 1000},
+)
+
+qwen_out = hf_qwen.invoke(prompt)
+# 使用 glm4.0
+# THUDM--glm-4-9b-chat
+# THUDM/glm-4-9b-chat
+'''hf_qwen = HuggingFacePipeline.from_model_id(
+    model_id="THUDM/glm-4-9b-chat",
+    task="chat",
+    device=0,
+    pipeline_kwargs={"max_new_tokens": 1000},
+    trust_remote_code=True
+)
+'''
+# 另一种方法
+# Load model directly auto的方法,见官方方法
+'''
+from transformers import AutoModel
+model = AutoModel.from_pretrained("THUDM/glm-4-9b-chat", trust_remote_code=True)
+
+
+# pipe方法
+# 创建 pipeline
+from transformers import pipeline
+# 指定模型名称
+model_id = "THUDM/glm-4-9b-chat"
+
+# 创建 pipeline，报错,错误在task，task没有chat类别,在官网的card上也找不到内容
+hf_qwen = pipeline(
+    task="chat",
+    model=model_id,
+    device=0,
+    trust_remote_code=True,
+    framework="pt",  # 确保使用 PyTorch
+    max_new_tokens=1000
+)
+# 报错
+from transformers import list_tasks
+
+# 查看支持的任务
+print(list_tasks())
+
+import transformers
+print(transformers.__version__)
+
+from transformers import pipeline
+# 手动列出支持的任务
+
+task = "text-classification"
+pipe = pipeline(task)
+print(pipe)
+'''
+
+# 使用官方原版的代码进行推理
+import torch
+from transformers import AutoModelForCausalLM, AutoTokenizer
+
+device = "cuda"
+tokenizer = AutoTokenizer.from_pretrained("THUDM/glm-4-9b-chat",trust_remote_code=True)
+query = prompt
+inputs = tokenizer.apply_chat_template([{"role": "user", "content": query}],
+                                       add_generation_prompt=True,
+                                       tokenize=True,
+                                       return_tensors="pt",
+                                       return_dict=True
+                                       )
+
+inputs = inputs.to(device)
+model = AutoModelForCausalLM.from_pretrained(
+    "THUDM/glm-4-9b-chat",
+    torch_dtype=torch.bfloat16,
+    low_cpu_mem_usage=True,
+    trust_remote_code=True
+).to(device).eval()
+
+gen_kwargs = {"max_length": 2500, "do_sample": True, "top_k": 1}
+with torch.no_grad():
+    outputs = model.generate(**inputs, **gen_kwargs)
+    outputs = outputs[:, inputs['input_ids'].shape[1]:]
+    print(tokenizer.decode(outputs[0], skip_special_tokens=True))
+
