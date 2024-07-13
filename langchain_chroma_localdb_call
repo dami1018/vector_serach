@@ -1,0 +1,67 @@
+# 调用已经存在的数据库,langchain的app应用都是调用已经存在的数据库，目前的代码还存在一定的重复啰嗦的部分
+from langchain.embeddings import SentenceTransformerEmbeddings
+from langchain.vectorstores import chroma
+persist_directory = r'C:\Users\csc05176\Desktop\py\deeplearning\data\db1'
+embedding_text = "hfl/chinese-roberta-wwm-ext"
+embeddings = SentenceTransformerEmbeddings(model_name=embedding_text)
+vectordb = chroma.Chroma(persist_directory=persist_directory,embedding_function=embeddings)
+# D:\tools\hf\.cache\huggingface\hub\models--hfl--chinese-roberta-wwm-ext 导入存量模型
+# embedding_text = r"D:\tools\hf\.cache\huggingface\hub\models--hfl--chinese-roberta-wwm-ext\snapshots\5c58d0b8ec1d9014354d691c538661bf00bfdb44\\"
+# embeddings1 = SentenceTransformerEmbeddings(model_name=embedding_text)
+# No sentence-transformers model found with 标配即使你指定确定的有json文件的目录都会有
+# 有指定json文件目录，不上网也可以加载，但是也会报not found
+# 灭有指定目录，会报错连接超时，如果可以上网也不会真实下载，但是不报错可运行
+# vectordb1 = chroma.Chroma(persist_directory=persist_directory,embedding_function=embeddings1)
+question = "客户开展融资融券业务应该具备哪些条件" 
+# 为了改善
+# 搜索结果，做关键词方面的改进，但是不清楚机制，只能盲猜，不能推广
+# 向量数据库的试用范围，同义词相关的，精确的只是多字段匹配感觉不适用向量数据库搜索
+
+question1 = "融资融券业务具备的条件" 
+question2 = "客户开展融资融券业务应该具备什么条件"
+docs = vectordb.similarity_search(question1,k=5)
+for doc in docs:
+    print(doc)
+# 获取metadata数据
+page =[]
+source = []
+for doc in docs:
+    page.append(doc.metadata['page'])
+    source.append(doc.metadata['page'])
+# 感觉没有500个子那么多，只有100个字，查询
+# 数量少的原因是因为按照页进行分词，从第一个字开始，不跨页
+metadata_query = {
+    "$and":
+    [{"source": 'C:\\Users\\csc05176\\Desktop\\py\\deeplearning\\data\\\\证券金融部制度汇总\\中信建投证券股份有限公司融资融券业务客户服务实施细则.pdf'},
+    {"page": 2}
+    #,{'start_index': 394}
+    ]
+}
+temp_source = vectordb.get(where = metadata_query)
+# 
+len(temp_source['documents'][1])
+# 遍历整个模型，遍历的结果不是pdf或是文档层面的相连
+qurey = vectordb.get()['documents']
+query_source = vectordb.get()['metadatas']
+# 找到涉及内容的上下文
+page = docs[1].metadata['page']
+content =  []
+for doc in docs:
+    page = doc.metadata['page']
+    source = doc.metadata['source']
+    start = doc.metadata['start_index']
+    page_list = []
+    if page==0:
+        page_list = [0,1]
+    else:
+        page_list = [page-1,page,page+1]
+    for page in page_list:
+        metadata_query = {
+            "$and":
+            [{"source": doc.metadata['source']},
+            {"page": page}
+            ]
+            }
+        temp_source = vectordb.get(where = metadata_query)
+        long_string = " ".join(temp_source['documents'])
+        content.append(long_string)
