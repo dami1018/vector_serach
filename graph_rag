@@ -1,0 +1,15 @@
+import graphrag
+list = dir(graphrag)
+print(graphrag.__loader__)
+import subprocess
+# 执行命令并捕获输出
+result = subprocess.run(['where', 'python'], capture_output=True, text=True)
+# 检查命令是否成功执行
+if result.returncode == 0:
+    # 输出命令结果
+    print("命令输出:\n", result.stdout)
+else:
+    # 输出错误信息
+    print("命令执行失败:\n", result.stderr)
+result = subprocess.run(['ollama', 'list'], capture_output=True, text=True)
+print(result.stdout)
