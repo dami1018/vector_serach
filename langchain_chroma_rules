@@ -196,7 +196,7 @@ metadata_query = {
 temp_source = vectordb.get(where = metadata_query)
 # 
 len(temp_source['documents'][1])
-# 遍历整个模型，遍历的结果不是pdf或是文档层面的相连
+# 遍历整个模型，遍历的结果不是pdf或是文档层面的顺序连接
 qurey = vectordb.get()['documents']
 query_source = vectordb.get()['metadatas']
 # 找到涉及内容的上下文
