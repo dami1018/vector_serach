@@ -14,13 +14,12 @@ vectordb = chroma.Chroma(persist_directory=persist_directory,embedding_function=
 # vectordb1 = chroma.Chroma(persist_directory=persist_directory,embedding_function=embeddings1)
 
 
-# 使用官方原版的代码进行推理
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
-
+# 本地路径：C:\Users\1\.cache\huggingface\hub\models--THUDM--glm-4-9b-chat\snapshots\04419001bc63e05e70991ade6da1f91c4aeec278
 device = "cuda"
-tokenizer = AutoTokenizer.from_pretrained("THUDM/glm-4-9b-chat",trust_remote_code=True)
-query = prompt
+tokenizer = AutoTokenizer.from_pretrained(r"C:\Users\1\.cache\huggingface\hub\models--THUDM--glm-4-9b-chat\snapshots\04419001bc63e05e70991ade6da1f91c4aeec278\\",trust_remote_code=True)
+query = prompt + input_text
 inputs = tokenizer.apply_chat_template([{"role": "user", "content": query}],
                                        add_generation_prompt=True,
                                        tokenize=True,
@@ -30,7 +29,7 @@ inputs = tokenizer.apply_chat_template([{"role": "user", "content": query}],
 
 inputs = inputs.to(device)
 model = AutoModelForCausalLM.from_pretrained(
-    "THUDM/glm-4-9b-chat",
+    r"C:\Users\1\.cache\huggingface\hub\models--THUDM--glm-4-9b-chat\snapshots\04419001bc63e05e70991ade6da1f91c4aeec278\\",
     torch_dtype=torch.bfloat16,
     low_cpu_mem_usage=True,
     trust_remote_code=True
