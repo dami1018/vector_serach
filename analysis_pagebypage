@@ -1,0 +1,27 @@
+# 调用大模型对文本内容进行逐页的解析
+import ollama
+models = ollama.list()
+model_name = 'qwen'
+# 数据导入和预处理
+import os
+directory_path = r'C:\Users\csc05176\Desktop\py\deeplearning\data\\'
+pdf_files = []
+for root, dirs, files in os.walk(directory_path):
+    for file in files:
+        if file.endswith('.pdf'):
+            pdf_files.append(os.path.join(root, file))
+from langchain.document_loaders import PyPDFLoader
+pdf = []
+for pdf_file in pdf_files:
+    loader = PyPDFLoader(pdf_file)
+    file_content = loader.load()
+    for content in file_content:
+        content.page_content = content.page_content.replace('宋彦泽','')
+        content.page_content = content.page_content.replace('CSC26272','')
+        content.page_content = content.page_content.replace('王晓博','')
+        content.page_content = content.page_content.replace('CSC32534','')
+        pdf.append(content)            
+input_text = pdf[200].page_content + pdf[201].page_content + pdf[202].page_content       
+prompt = '请总结以下内容：'            
+            
+output = ollama.generate(model_name, prompt + input_text)
