@@ -1,0 +1,43 @@
+# 调用已经存在的数据库,langchain的app应用都是调用已经存在的数据库，目前的代码还存在一定的重复啰嗦的部分
+from langchain.embeddings import SentenceTransformerEmbeddings
+from langchain.vectorstores import chroma
+persist_directory = r'D:\script\python\data\chroma_db\rules500\\'
+embedding_text = "hfl/chinese-roberta-wwm-ext"
+embeddings = SentenceTransformerEmbeddings(model_name=embedding_text)
+vectordb = chroma.Chroma(persist_directory=persist_directory,embedding_function=embeddings)
+# D:\tools\hf\.cache\huggingface\hub\models--hfl--chinese-roberta-wwm-ext 导入存量模型
+# embedding_text = r"D:\tools\hf\.cache\huggingface\hub\models--hfl--chinese-roberta-wwm-ext\snapshots\5c58d0b8ec1d9014354d691c538661bf00bfdb44\\"
+# embeddings1 = SentenceTransformerEmbeddings(model_name=embedding_text)
+# No sentence-transformers model found with 标配即使你指定确定的有json文件的目录都会有
+# 有指定json文件目录，不上网也可以加载，但是也会报not found
+# 灭有指定目录，会报错连接超时，如果可以上网也不会真实下载，但是不报错可运行
+# vectordb1 = chroma.Chroma(persist_directory=persist_directory,embedding_function=embeddings1)
+
+
+# 使用官方原版的代码进行推理
+import torch
+from transformers import AutoModelForCausalLM, AutoTokenizer
+
+device = "cuda"
+tokenizer = AutoTokenizer.from_pretrained("THUDM/glm-4-9b-chat",trust_remote_code=True)
+query = prompt
+inputs = tokenizer.apply_chat_template([{"role": "user", "content": query}],
+                                       add_generation_prompt=True,
+                                       tokenize=True,
+                                       return_tensors="pt",
+                                       return_dict=True
+                                       )
+
+inputs = inputs.to(device)
+model = AutoModelForCausalLM.from_pretrained(
+    "THUDM/glm-4-9b-chat",
+    torch_dtype=torch.bfloat16,
+    low_cpu_mem_usage=True,
+    trust_remote_code=True
+).to(device).eval()
+
+gen_kwargs = {"max_length": 2500, "do_sample": True, "top_k": 1}
+with torch.no_grad():
+    outputs = model.generate(**inputs, **gen_kwargs)
+    outputs = outputs[:, inputs['input_ids'].shape[1]:]
+    print(tokenizer.decode(outputs[0], skip_special_tokens=True))
