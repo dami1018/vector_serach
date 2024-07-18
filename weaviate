@@ -1,0 +1,31 @@
+import weaviate
+client = weaviate.Client("http://localhost:8080")
+class_obj = {
+    "class": "ExampleClass",
+    "description": "This is an example class",
+    "properties": [
+        {
+            "name": "name",
+            "dataType": ["string"],
+            "description": "Name of the object"
+        },
+        {
+            "name": "description",
+            "dataType": ["text"],
+            "description": "Description of the object"
+        }
+    ]
+}
+
+client.schema.create_class(class_obj)
+data_obj = {
+    "name": "Example Object",
+    "description": "This is an example object"
+}
+client.data_object.create(data_obj, "ExampleClass")
+query = {
+    "class": "ExampleClass",
+    "limit": 1
+}
+result = client.query.get("ExampleClass", ["name", "description"]).do()
+print(result)
