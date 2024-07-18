@@ -1,10 +1,10 @@
 # 调用大模型对文本内容进行逐页的解析
 import ollama
 models = ollama.list()
-model_name = 'qwen'
+model_name = 'llama3:8b'
 # 数据导入和预处理
 import os
-directory_path = r'C:\Users\csc05176\Desktop\py\deeplearning\data\\'
+directory_path = r'D:\script\python\data\\'
 pdf_files = []
 for root, dirs, files in os.walk(directory_path):
     for file in files:
@@ -21,7 +21,70 @@ for pdf_file in pdf_files:
         content.page_content = content.page_content.replace('王晓博','')
         content.page_content = content.page_content.replace('CSC32534','')
         pdf.append(content)            
-input_text = pdf[200].page_content + pdf[201].page_content + pdf[202].page_content       
-prompt = '请总结以下内容：'            
+input_text = pdf[300].page_content + pdf[301].page_content + pdf[302].page_content       
+prompt = '请用中文总结以下内容：'            
             
 output = ollama.generate(model_name, prompt + input_text)
+print(input_text)
+# glm4输出
+# 使用官方原版的代码进行推理
+import torch
+from transformers import AutoModelForCausalLM, AutoTokenizer
+# 本地路径：C:\Users\1\.cache\huggingface\hub\models--THUDM--glm-4-9b-chat\snapshots\04419001bc63e05e70991ade6da1f91c4aeec278
+device = "cuda"
+tokenizer = AutoTokenizer.from_pretrained(r"C:\Users\1\.cache\huggingface\hub\models--THUDM--glm-4-9b-chat\snapshots\04419001bc63e05e70991ade6da1f91c4aeec278\\",trust_remote_code=True)
+query = prompt + input_text
+inputs = tokenizer.apply_chat_template([{"role": "user", "content": query}],
+                                       add_generation_prompt=True,
+                                       tokenize=True,
+                                       return_tensors="pt",
+                                       return_dict=True
+                                       )
+
+inputs = inputs.to(device)
+model = AutoModelForCausalLM.from_pretrained(
+    r"C:\Users\1\.cache\huggingface\hub\models--THUDM--glm-4-9b-chat\snapshots\04419001bc63e05e70991ade6da1f91c4aeec278\\",
+    torch_dtype=torch.bfloat16,
+    low_cpu_mem_usage=True,
+    trust_remote_code=True
+).to(device).eval()
+
+gen_kwargs = {"max_length": 2500, "do_sample": True, "top_k": 1}
+with torch.no_grad():
+    outputs = model.generate(**inputs, **gen_kwargs)
+    outputs = outputs[:, inputs['input_ids'].shape[1]:]
+    print(tokenizer.decode(outputs[0], skip_special_tokens=True))
+
+# 这段话的主题是什么 glm4
+query = '请用中文回答以下文本的主题是什么？：' + input_text
+inputs = tokenizer.apply_chat_template([{"role": "user", "content": query}],
+                                       add_generation_prompt=True,
+                                       tokenize=True,
+                                       return_tensors="pt",
+                                       return_dict=True
+                                       )
+
+inputs = inputs.to(device)
+gen_kwargs = {"max_length": 2500, "do_sample": True, "top_k": 1}
+with torch.no_grad():
+    outputs = model.generate(**inputs, **gen_kwargs)
+    outputs = outputs[:, inputs['input_ids'].shape[1]:]
+    print(tokenizer.decode(outputs[0], skip_special_tokens=True))
+# llama3
+prompt = '请用中文回答以下文本的主题是什么？：' + input_text                        
+output = ollama.generate(model_name, prompt)
+
+
+# 提取主题和主要内容
+theme = []
+abstract = []
+length = len(pdf)
+for i in range(length):
+    if i >= 2 :
+       input_text = pdf[i-2].page_content + pdf[i-1].page_content + pdf[i].page_content 
+       prompt = '请用中文回答以下文本的主题是什么？：' + input_text 
+       output = ollama.generate(model_name, prompt)
+       theme.append(output)
+       prompt = '请用中文总结以下内容：' + input_text 
+       output = ollama.generate(model_name, prompt)
+       theme.append(output)
